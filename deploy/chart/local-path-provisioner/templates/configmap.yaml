@@ -14,6 +14,9 @@ data:
   teardown: |-
     {{ .Values.configmap.teardown | nindent 4 }}
   helperPod.yaml: |-
+    {{- if .Values.configmap.helperPod }}
+    {{ .Values.configmap.helperPod | nindent 4 }}
+    {{- else }}
     apiVersion: v1
     kind: Pod
     metadata:
@@ -27,3 +30,4 @@ data:
           image: {{ .Values.helperImage.repository }}:{{ .Values.helperImage.tag }}
           {{- end }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+    {{- end }}

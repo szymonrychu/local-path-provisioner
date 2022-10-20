@@ -107,6 +107,20 @@ configmap:
     #!/bin/sh
     set -eu
     rm -rf "$VOL_DIR"
+  # helperPod: |-
+  #   apiVersion: v1
+  #   kind: Pod
+  #   metadata:
+  #     name: helper-pod
+  #   spec:
+  #     containers:
+  #       - name: helper-pod
+  #         {{- if .Values.privateRegistry.registryUrl }}
+  #         image: {{ .Values.privateRegistry.registryUrl }}/{{ .Values.helperImage.repository }}:{{ .Values.helperImage.tag }}
+  #         {{- else }}
+  #         image: {{ .Values.helperImage.repository }}:{{ .Values.helperImage.tag }}
+  #         {{- end }}
+  #         imagePullPolicy: {{ .Values.image.pullPolicy }}
 
 # Number of provisioner worker threads to call provision/delete simultaneously.
 # workerThreads: 4
