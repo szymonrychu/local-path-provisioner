@@ -1,0 +1,73 @@
+name: release
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+env:
+  GIT_SHA: ${{ github.sha }}
+  GIT_REF: ${{ github.ref }}
+  CHART_GIT_BRANCH: master
+  CHART_REPOSITORY: szymonrychu/charts
+  BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+  BOT_EMAIL: "szymon.rychu@gmail.com"
+  BOT_USERNAME: "szymonrychu"
+  CENTRAL_REPOSITORY: szymonrychu/helmfile-cluster
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+  
+    - name: Parse versions in commit and setup debs
+      run: |
+        export LATEST_REPO_TAG=$(git tag -l --sort=-v:refname "[0-9]*" | head -n1)
+
+        export SHORT_SHA=$(echo ${GIT_SHA:0:7})
+
+        echo "CHART_VERSION=${LATEST_REPO_TAG}" >> $GITHUB_ENV
+
+
+        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+        sudo chmod +x /usr/local/bin/yq 
+
+        curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
+
+
+    - name: Update metadata files
+      run: |
+        set -e
+        cd deploy/chart
+        yq e -i ".version = \"${CHART_VERSION}\"" local-path-provisioner/Chart.yaml
+
+    - name: Package and push helm chart
+      run: |
+        set -e
+
+        cd deploy/chart
+
+        CHART_PWD=$(pwd)
+
+        helm dep update local-path-provisioner
+        helm package -u local-path-provisioner
+
+        git clone https://x-access-token:${BOT_TOKEN}@github.com/${CHART_REPOSITORY}.git /tmp/repo
+        cd /tmp/repo
+        git checkout ${CHART_GIT_BRANCH}
+
+        mv ${CHART_PWD}/local-path-provisioner-${CHART_VERSION}.tgz ./
+        helm repo index .
+
+        git config --global user.email "${BOT_EMAIL}"
+        git config --global user.name "${BOT_USERNAME}"
+        git add -A
+        git commit -m "Release local-path-provisioner ${CHART_VERSION}"
+        git push origin ${CHART_GIT_BRANCH}
+
+    - name: Create GH Release
+      uses: notlmn/release-with-changelog@v3
+      with:
+        token: ${{ secrets.BOT_TOKEN }}
+        template: '{commits}'
